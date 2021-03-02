@@ -1,6 +1,7 @@
 # syntax = docker/dockerfile:1.2
 
-# NOTICE: this image is intended to be built with buildx
+# NOTICE: this image is intended to be built with buildx so that any linux platform can be targeted using this Dockerfile
+
 # the args TARGETPLATFORM and BUILDPLATFORM are provided when building with buildx
 # specify args outside build stage to use them in FROM
 ARG TARGET_BASE=scratch
