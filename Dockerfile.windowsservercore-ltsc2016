@@ -1,0 +1,34 @@
+# syntax = docker/dockerfile:1.2
+
+# specify args outside build stage to use them in FROM
+ARG TARGET_BASE=golang:1.16-windowsservercore-ltsc2016
+
+# build groupsync for target platform
+FROM $TARGET_BASE AS build
+# build-stage specific args
+ARG TARGET_OS=windows
+ARG TARGET_ARCH=amd64
+
+WORKDIR /groupsync
+
+ENV GO111MODULE=on \
+    CGO_ENABLED=0 \
+    GOOS=$TARGET_OS \
+    GOARCH=$TARGET_ARCH
+
+COPY go.mod .
+COPY go.sum .
+
+RUN go mod download -x
+
+COPY . .
+
+RUN go build
+
+
+# create application container from minimal base image, copying in just the binary from build container
+FROM $TARGET_BASE as groupsync
+
+COPY --from=build groupsync /
+
+ENTRYPOINT ["/groupsync"]
