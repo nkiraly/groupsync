@@ -52,6 +52,9 @@ type LDAPConfig struct {
 	UserClass       string `mapstructure:"user_class"`
 	SearchAttribute string `mapstructure:"search_attribute"`
 	UserIDAttribute string `mapstructure:"user_id_attribute"`
+
+	// Account Matching Options
+	SkipAccountsMissingIdAttribute bool `mapstructure:"skip_accounts_missing_id_attribute"`
 }
 
 // NewLDAP creates a new instance of LDAP with the provided configuration.
@@ -155,6 +158,9 @@ func (l LDAP) GroupMembers(group string) ([]User, error) {
 		if l.cfg.UserIDAttribute != "" {
 			member.id = e.GetAttributeValue(l.cfg.UserIDAttribute)
 			if member.id == "" {
+				if l.cfg.SkipAccountsMissingIdAttribute {
+					continue
+				}
 				return nil, fmt.Errorf(
 					"Failed to get user ID (%s) for %s",
 					l.cfg.UserIDAttribute,
