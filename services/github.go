@@ -70,36 +70,47 @@ func (g GitHub) GroupMembers(group string) ([]User, error) {
 						Edges []struct {
 							Node GitHubIdentity
 						}
-					}
+						PageInfo struct {
+							EndCursor   githubv4.String
+							HasNextPage bool
+						}
+					} `graphql:"members(first: 100, after: $membersCursor)"`
 				} `graphql:"team(slug: $grp)"`
 			} `graphql:"organization(login: $org)"`
 		}
 	}
 
 	vars := map[string]interface{}{
-		"org": githubv4.String(g.cfg.Org),
-		"grp": githubv4.String(group),
-	}
-
-	err := g.v4client.Query(
-		context.Background(),
-		&membersQuery,
-		vars,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if membersQuery.Viewer.Organization.Team.Name == "" {
-		return nil, fmt.Errorf("Cannot find GitHub team called \"%s\"", group)
+		"org":           githubv4.String(g.cfg.Org),
+		"grp":           githubv4.String(group),
+		"membersCursor": (*githubv4.String)(nil),
 	}
 
 	var result []User
 
-	for _, entry := range membersQuery.Viewer.Organization.Team.Members.Edges {
-		user := newUser()
-		user.addIdentity("github", entry.Node)
-		result = append(result, user)
+	for {
+		err := g.v4client.Query(
+			context.Background(),
+			&membersQuery,
+			vars,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if membersQuery.Viewer.Organization.Team.Name == "" {
+			return nil, fmt.Errorf("Cannot find GitHub team called \"%s\"", group)
+		}
+
+		for _, entry := range membersQuery.Viewer.Organization.Team.Members.Edges {
+			user := newUser()
+			user.addIdentity("github", entry.Node)
+			result = append(result, user)
+		}
+
+		if !membersQuery.Viewer.Organization.Team.Members.PageInfo.HasNextPage {
+			break
+		}
+		vars["membersCursor"] = githubv4.NewString(membersQuery.Viewer.Organization.Team.Members.PageInfo.EndCursor)
 	}
 
 	return result, nil
